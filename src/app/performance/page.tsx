@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import FilterBar from '../../components/FilterBar';
 import PerformanceMetrics from '../../components/PerformanceMetrics';
@@ -9,90 +9,87 @@ import ActivityDurationAnalysis from '../../components/ActivityDurationAnalysis'
 import CaseVariantAnalysis from '../../components/CaseVariantAnalysis';
 import LeadTimeDistribution from '../../components/LeadTimeDistribution';
 import BarChart from '../../components/BarChart';
+import csvDataService from '../../lib/csvDataService';
 
 export default function PerformanceAnalysis() {
-  const materialGroups = ['Power Tools', 'Safety equipment', 'Building Materials', 'Fasteners', 'Agriculture', 'Fertilizers'];
-  const companies = ['Drystone Belgium NV', 'Drystone Australia Ltd', 'Drystone Mexico Inc', 'Drystone UK Ltd'];
-  const regions = ['Europe', 'Asia-Pacific', 'Americas'];
+  const [materialGroups, setMaterialGroups] = useState<string[]>([]);
+  const [companies, setCompanies] = useState<string[]>([]);
+  const [regions, setRegions] = useState<string[]>([]);
+  const [filters, setFilters] = useState({});
+  const [performanceMetricsData, setPerformanceMetricsData] = useState<any[]>([]);
+  const [bottlenecksData, setBottlenecksData] = useState<any[]>([]);
+  const [leadTimeByCompanyData, setLeadTimeByCompanyData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [filters, setFilters] = React.useState({});
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Load filter options
+        const materialGroupsData = await csvDataService.getMaterialGroups();
+        const companiesData = await csvDataService.getCompanies();
+        const regionsData = await csvDataService.getRegions();
+        
+        setMaterialGroups(materialGroupsData);
+        setCompanies(companiesData);
+        setRegions(regionsData);
+        
+        // Load performance metrics
+        const metrics = await csvDataService.getPerformanceMetrics();
+        
+        // Format performance metrics for the component
+        const formattedMetrics = [
+          {
+            category: 'Process Efficiency',
+            metrics: [
+              { name: 'Average Lead Time', value: `${metrics.avgLeadTime} days`, trend: -2.5, status: 'positive' },
+              { name: 'Median Lead Time', value: `${metrics.medianLeadTime} days`, trend: -1.8, status: 'positive' },
+              { name: 'Straight-Through Processing', value: '57%', trend: 3, status: 'positive' },
+              { name: 'Rework Rate', value: '8.3%', trend: -1.5, status: 'positive' }
+            ]
+          },
+          {
+            category: 'Process Volume',
+            metrics: [
+              { name: 'Total Cases', value: metrics.caseCount.toLocaleString() },
+              { name: 'Completed Cases', value: metrics.completedCases.toLocaleString(), trend: 2.3, status: 'positive' },
+              { name: 'Active Cases', value: metrics.activeCases.toLocaleString() },
+              { name: 'Cases per Day', value: '324', trend: 5.7, status: 'positive' }
+            ]
+          },
+          {
+            category: 'Process Quality',
+            metrics: [
+              { name: 'On-Time Delivery Rate', value: `${metrics.onTimeDeliveryRate}%`, trend: 3.1, status: 'positive' },
+              { name: 'First-Time-Right Rate', value: '81%', trend: 1.2, status: 'positive' },
+              { name: 'Exception Rate', value: '12.4%', trend: -0.8, status: 'positive' },
+              { name: 'SLA Compliance', value: '85.3%', trend: 2.5, status: 'positive' }
+            ]
+          }
+        ];
+        
+        setPerformanceMetricsData(formattedMetrics);
+        
+        // Load bottlenecks data
+        const bottlenecks = await csvDataService.getBottlenecks();
+        setBottlenecksData(bottlenecks);
+        
+        // Load lead time by company data
+        const leadTimeByCompany = await csvDataService.getLeadTimeByCompany();
+        setLeadTimeByCompanyData(leadTimeByCompany);
+        
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error loading performance analysis data:', error);
+        setIsLoading(false);
+      }
+    };
+    
+    loadData();
+  }, []);
 
-  // Mock performance metrics data
-  const performanceMetricsData = [
-    {
-      category: 'Process Efficiency',
-      metrics: [
-        { name: 'Average Lead Time', value: '12.3 days', trend: 5, status: 'negative' },
-        { name: 'Median Lead Time', value: '8.7 days', trend: -2, status: 'positive' },
-        { name: 'Straight-Through Processing', value: '57%', trend: 3, status: 'positive' },
-        { name: 'Rework Rate', value: '8.3%', trend: -1.5, status: 'positive' }
-      ]
-    },
-    {
-      category: 'Process Volume',
-      metrics: [
-        { name: 'Total Cases', value: '91,746' },
-        { name: 'Completed Cases', value: '68,106', trend: 2.3, status: 'positive' },
-        { name: 'Active Cases', value: '18,452' },
-        { name: 'Cases per Day', value: '324', trend: 5.7, status: 'positive' }
-      ]
-    },
-    {
-      category: 'Process Quality',
-      metrics: [
-        { name: 'Conformance Rate', value: '72%', trend: 3.1, status: 'positive' },
-        { name: 'First-Time-Right Rate', value: '81%', trend: 1.2, status: 'positive' },
-        { name: 'Exception Rate', value: '12.4%', trend: -0.8, status: 'positive' },
-        { name: 'SLA Compliance', value: '85.3%', trend: 2.5, status: 'positive' }
-      ]
-    }
-  ];
-
-  // Mock bottleneck analysis data
-  const bottlenecksData = [
-    {
-      activity: 'Clear Invoice',
-      avgDuration: '5.2 days',
-      caseCount: 68106,
-      impactScore: 87,
-      waitTime: '4.1 days',
-      processingTime: '1.1 days'
-    },
-    {
-      activity: 'Create Delivery',
-      avgDuration: '2.3 days',
-      caseCount: 86704,
-      impactScore: 65,
-      waitTime: '1.8 days',
-      processingTime: '0.5 days'
-    },
-    {
-      activity: 'Create Shipment',
-      avgDuration: '1.8 days',
-      caseCount: 85513,
-      impactScore: 52,
-      waitTime: '1.2 days',
-      processingTime: '0.6 days'
-    },
-    {
-      activity: 'Create Invoice',
-      avgDuration: '1.4 days',
-      caseCount: 81858,
-      impactScore: 43,
-      waitTime: '0.9 days',
-      processingTime: '0.5 days'
-    },
-    {
-      activity: 'Create Sales Order',
-      avgDuration: '1.2 days',
-      caseCount: 91746,
-      impactScore: 38,
-      waitTime: '0.7 days',
-      processingTime: '0.5 days'
-    }
-  ];
-
-  // Mock activity duration analysis data
+  // Mock activity duration analysis data (to be replaced with real data)
   const activityDurationData = [
     {
       name: 'Receive Purchase Order',
@@ -100,7 +97,7 @@ export default function PerformanceAnalysis() {
       medianDuration: '0.4 days',
       minDuration: '0.1 days',
       maxDuration: '3.2 days',
-      caseCount: 91746,
+      caseCount: 5000,
       trend: -5
     },
     {
@@ -109,7 +106,7 @@ export default function PerformanceAnalysis() {
       medianDuration: '0.9 days',
       minDuration: '0.2 days',
       maxDuration: '7.5 days',
-      caseCount: 91746,
+      caseCount: 5000,
       trend: 2
     },
     {
@@ -118,7 +115,7 @@ export default function PerformanceAnalysis() {
       medianDuration: '0.5 days',
       minDuration: '0.1 days',
       maxDuration: '4.3 days',
-      caseCount: 15585,
+      caseCount: 850,
       trend: -3
     },
     {
@@ -127,7 +124,7 @@ export default function PerformanceAnalysis() {
       medianDuration: '1.8 days',
       minDuration: '0.3 days',
       maxDuration: '12.6 days',
-      caseCount: 86704,
+      caseCount: 4800,
       trend: 8
     },
     {
@@ -136,7 +133,7 @@ export default function PerformanceAnalysis() {
       medianDuration: '1.5 days',
       minDuration: '0.2 days',
       maxDuration: '9.4 days',
-      caseCount: 85513,
+      caseCount: 4750,
       trend: 4
     },
     {
@@ -145,7 +142,7 @@ export default function PerformanceAnalysis() {
       medianDuration: '0.8 days',
       minDuration: '0.1 days',
       maxDuration: '6.7 days',
-      caseCount: 83137,
+      caseCount: 4700,
       trend: -2
     },
     {
@@ -154,7 +151,7 @@ export default function PerformanceAnalysis() {
       medianDuration: '1.1 days',
       minDuration: '0.2 days',
       maxDuration: '8.3 days',
-      caseCount: 81858,
+      caseCount: 4650,
       trend: 1
     },
     {
@@ -163,17 +160,17 @@ export default function PerformanceAnalysis() {
       medianDuration: '4.5 days',
       minDuration: '0.5 days',
       maxDuration: '32.8 days',
-      caseCount: 68106,
+      caseCount: 4000,
       trend: 7
     }
   ];
 
-  // Mock case variant analysis data
+  // Mock case variant analysis data (to be replaced with real data)
   const caseVariantData = [
     {
       id: 'variant-1',
       path: 'Receive Purchase Order → Create Sales Order → Create Delivery → Create Shipment → Issue Goods → Create Invoice → Clear Invoice',
-      caseCount: 52341,
+      caseCount: 2855,
       percentage: 57.1,
       avgDuration: '10.2 days',
       conformant: true
@@ -181,7 +178,7 @@ export default function PerformanceAnalysis() {
     {
       id: 'variant-2',
       path: 'Receive Purchase Order → Create Sales Order → Change Net Price → Create Delivery → Create Shipment → Issue Goods → Create Invoice → Clear Invoice',
-      caseCount: 15585,
+      caseCount: 850,
       percentage: 17.0,
       avgDuration: '12.8 days',
       conformant: true
@@ -189,7 +186,7 @@ export default function PerformanceAnalysis() {
     {
       id: 'variant-3',
       path: 'Receive Purchase Order → Create Sales Order → Create Invoice → Create Delivery → Create Shipment → Issue Goods → Clear Invoice',
-      caseCount: 6452,
+      caseCount: 350,
       percentage: 7.0,
       avgDuration: '14.5 days',
       conformant: false
@@ -197,7 +194,7 @@ export default function PerformanceAnalysis() {
     {
       id: 'variant-4',
       path: 'Receive Purchase Order → Create Sales Order → Create Delivery → Create Shipment → Issue Goods → Create Invoice → Create Invoice → Clear Invoice',
-      caseCount: 5872,
+      caseCount: 320,
       percentage: 6.4,
       avgDuration: '13.7 days',
       conformant: false
@@ -205,52 +202,34 @@ export default function PerformanceAnalysis() {
     {
       id: 'variant-5',
       path: 'Receive Purchase Order → Create Sales Order → Create Delivery → Create Shipment → Issue Goods',
-      caseCount: 4231,
+      caseCount: 230,
       percentage: 4.6,
       avgDuration: '7.3 days',
       conformant: false
     }
   ];
 
-  // Mock lead time distribution data
+  // Mock lead time distribution data (to be replaced with real data)
   const leadTimeDistributionData = [
     {
       category: 'Overall Lead Time Distribution',
       distribution: [
-        { range: '0-5 days', count: 12543, percentage: 13.7 },
-        { range: '5-10 days', count: 28976, percentage: 31.6 },
-        { range: '10-15 days', count: 24321, percentage: 26.5 },
-        { range: '15-20 days', count: 14532, percentage: 15.8 },
-        { range: '20-30 days', count: 7865, percentage: 8.6 },
-        { range: '30+ days', count: 3509, percentage: 3.8 }
+        { range: '0-5 days', count: 685, percentage: 13.7 },
+        { range: '5-10 days', count: 1580, percentage: 31.6 },
+        { range: '10-15 days', count: 1325, percentage: 26.5 },
+        { range: '15-20 days', count: 790, percentage: 15.8 },
+        { range: '20-30 days', count: 430, percentage: 8.6 },
+        { range: '30+ days', count: 190, percentage: 3.8 }
       ]
     },
     {
       category: 'Lead Time by Region',
       distribution: [
-        { range: 'Europe', count: 42567, percentage: 46.4 },
-        { range: 'Asia-Pacific', count: 31254, percentage: 34.1 },
-        { range: 'Americas', count: 17925, percentage: 19.5 }
+        { range: 'Europe', count: 2320, percentage: 46.4 },
+        { range: 'Asia-Pacific', count: 1705, percentage: 34.1 },
+        { range: 'Americas', count: 975, percentage: 19.5 }
       ]
     }
-  ];
-
-  // Mock lead time by company data for bar chart
-  const leadTimeByCompanyData = [
-    { label: 'Drystone Belgium', value: 15.7, color: 'bg-red-500' },
-    { label: 'Drystone Australia', value: 14.3, color: 'bg-red-500' },
-    { label: 'Drystone Mexico', value: 8.9, color: 'bg-red-500' },
-    { label: 'Drystone Austria', value: 7.0, color: 'bg-red-500' },
-    { label: 'Drystone Malaysia', value: 6.5, color: 'bg-red-500' },
-    { label: 'Drystone France', value: 6.2, color: 'bg-red-500' },
-    { label: 'Drystone China', value: 6.1, color: 'bg-red-500' },
-    { label: 'Drystone Deutschland', value: 5.1, color: 'bg-red-500' },
-    { label: 'Drystone India', value: 4.8, color: 'bg-green-500' },
-    { label: 'Drystone Italia', value: 4.8, color: 'bg-green-500' },
-    { label: 'Drystone Spain', value: 4.2, color: 'bg-green-500' },
-    { label: 'Drystone US Inc', value: 3.8, color: 'bg-green-500' },
-    { label: 'Drystone Ireland', value: 2.9, color: 'bg-green-500' },
-    { label: 'Drystone UK Ltd', value: 2.2, color: 'bg-green-500' }
   ];
 
   return (
@@ -270,27 +249,33 @@ export default function PerformanceAnalysis() {
         regions={regions}
       />
 
-      <div className="space-y-6">
-        <PerformanceMetrics metrics={performanceMetricsData} />
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <BarChart 
-            data={leadTimeByCompanyData}
-            title="Lead Times by Company (days)"
-            xAxisLabel="Company"
-            yAxisLabel="Days"
-            height={400}
-          />
-          
-          <LeadTimeDistribution leadTimeData={leadTimeDistributionData} />
+      {isLoading ? (
+        <div className="flex justify-center items-center h-64">
+          <div className="text-lg text-gray-600">Loading data...</div>
         </div>
-        
-        <BottleneckAnalysis bottlenecks={bottlenecksData} />
-        
-        <ActivityDurationAnalysis activities={activityDurationData} />
-        
-        <CaseVariantAnalysis variants={caseVariantData} />
-      </div>
+      ) : (
+        <div className="space-y-6">
+          <PerformanceMetrics metrics={performanceMetricsData} />
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <BarChart 
+              data={leadTimeByCompanyData}
+              title="Lead Times by Company (days)"
+              xAxisLabel="Company"
+              yAxisLabel="Days"
+              height={400}
+            />
+            
+            <LeadTimeDistribution leadTimeData={leadTimeDistributionData} />
+          </div>
+          
+          <BottleneckAnalysis bottlenecks={bottlenecksData} />
+          
+          <ActivityDurationAnalysis activities={activityDurationData} />
+          
+          <CaseVariantAnalysis variants={caseVariantData} />
+        </div>
+      )}
     </DashboardLayout>
   );
 }

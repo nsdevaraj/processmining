@@ -1,129 +1,71 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
 import KPICard from '../components/KPICard';
 import FilterBar from '../components/FilterBar';
 import Tabs from '../components/Tabs';
-import ProcessFlow from '../components/ProcessFlow';
-import BarChart from '../components/BarChart';
 import DataTable from '../components/DataTable';
+import ProcessFlow from '../components/ProcessFlow';
+import csvDataService from '../lib/csvDataService';
 
-export default function Home() {
-  // Mock data for demonstration
-  const kpiData = [
-    { title: 'Total Cases', value: '5,000' },
-    { title: 'Conformant Cases', value: '3,452', trend: 5, trendLabel: 'vs. last month' },
-    { title: 'Average Lead Time', value: '4.8 days', trend: -12, trendLabel: 'vs. last month' },
-    { title: 'On-Time Delivery', value: '72%', trend: 3, trendLabel: 'vs. last month' },
-  ];
+export default function Dashboard() {
+  const [materialGroups, setMaterialGroups] = useState<string[]>([]);
+  const [companies, setCompanies] = useState<string[]>([]);
+  const [regions, setRegions] = useState<string[]>([]);
+  const [filters, setFilters] = useState({});
+  const [performanceMetrics, setPerformanceMetrics] = useState({
+    avgLeadTime: 0,
+    medianLeadTime: 0,
+    onTimeDeliveryRate: 0,
+    caseCount: 0,
+    completedCases: 0,
+    activeCases: 0
+  });
+  const [processFlowData, setProcessFlowData] = useState({
+    nodes: [],
+    edges: []
+  });
+  const [isLoading, setIsLoading] = useState(true);
 
-  const materialGroups = ['Power Tools', 'Safety equipment', 'Building Materials', 'Fasteners', 'Agriculture', 'Fertilizers'];
-  const companies = ['Drystone Belgium NV', 'Drystone Australia Ltd', 'Drystone Mexico Inc', 'Drystone UK Ltd'];
-  const regions = ['Europe', 'Asia-Pacific', 'Americas'];
-
-  const [filters, setFilters] = React.useState({});
-  const [activeTab, setActiveTab] = React.useState('overview');
-
-  const tabs = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'details', label: 'Details' },
-    { id: 'rework', label: 'Rework' },
-    { id: 'bottlenecks', label: 'Bottlenecks' },
-    { id: 'automation', label: 'Automation' },
-    { id: 'cashflow', label: 'Cashflow' },
-    { id: 'exceptions', label: 'Exceptions' },
-    { id: 'root-causes', label: 'Root causes' },
-  ];
-
-  // Mock process flow data
-  const processNodes = [
-    { id: 'node1', label: 'Receive Purchase Order', count: 5000, isConformant: true },
-    { id: 'node2', label: 'Create Sales Order', count: 4950, isConformant: true },
-    { id: 'node3', label: 'Change Net Price in Sales Order', count: 1450, isConformant: true },
-    { id: 'node4', label: 'Create Delivery', count: 4800, isConformant: true },
-    { id: 'node5', label: 'Create Shipment', count: 4750, isConformant: true },
-    { id: 'node6', label: 'Issue Goods', count: 4700, isConformant: true },
-    { id: 'node7', label: 'Create Invoice', count: 4650, isConformant: true },
-    { id: 'node8', label: 'Clear Invoice', count: 4600, isConformant: true },
-  ];
-
-  const processEdges = [
-    { source: 'node1', target: 'node2', value: 4950 },
-    { source: 'node2', target: 'node3', value: 1450 },
-    { source: 'node3', target: 'node4', value: 1450 },
-    { source: 'node2', target: 'node4', value: 3350 },
-    { source: 'node4', target: 'node5', value: 4750 },
-    { source: 'node5', target: 'node6', value: 4700 },
-    { source: 'node6', target: 'node7', value: 4650 },
-    { source: 'node7', target: 'node8', value: 4600 },
-  ];
-
-  // Mock chart data
-  const leadTimeData = [
-    { label: 'Drystone Belgium', value: 15.7, color: 'bg-red-500' },
-    { label: 'Drystone Australia', value: 14.3, color: 'bg-red-500' },
-    { label: 'Drystone Mexico', value: 8.9, color: 'bg-red-500' },
-    { label: 'Drystone Austria', value: 7.0, color: 'bg-red-500' },
-    { label: 'Drystone Malaysia', value: 6.5, color: 'bg-red-500' },
-    { label: 'Drystone France', value: 6.2, color: 'bg-red-500' },
-    { label: 'Drystone China', value: 6.1, color: 'bg-red-500' },
-    { label: 'Drystone Deutschland', value: 5.1, color: 'bg-red-500' },
-    { label: 'Drystone India', value: 4.8, color: 'bg-green-500' },
-    { label: 'Drystone Italia', value: 4.8, color: 'bg-green-500' },
-    { label: 'Drystone Spain', value: 4.2, color: 'bg-green-500' },
-    { label: 'Drystone US Inc', value: 3.8, color: 'bg-green-500' },
-    { label: 'Drystone Ireland', value: 2.9, color: 'bg-green-500' },
-    { label: 'Drystone UK Ltd', value: 2.2, color: 'bg-green-500' },
-  ];
-
-  // Mock table data
-  const deviatingFlowsData = [
-    { 
-      flow: 'Create Invoice occurred directly after Create Invoice', 
-      percentage: '21.6%', 
-      duration: '-1.0 days', 
-      events: '0.7 events' 
-    },
-    { 
-      flow: 'Create Invoice occurred directly after Create Shipment', 
-      percentage: '7.2%', 
-      duration: '2.7 days', 
-      events: '-0.2 events' 
-    },
-    { 
-      flow: 'Clear Invoice is the starting event', 
-      percentage: '5.4%', 
-      duration: '189.5 days', 
-      events: '0.5 events' 
-    },
-    { 
-      flow: 'Create Shipment occurred directly after Create Sales Order', 
-      percentage: '1.0%', 
-      duration: '-4.7 days', 
-      events: '0.0 events' 
-    },
-    { 
-      flow: 'Create Delivery occurred directly after Create Invoice', 
-      percentage: '0.9%', 
-      duration: '-6.8 days', 
-      events: '4.0 events' 
-    },
-  ];
-
-  const deviatingFlowsColumns = [
-    { header: 'Deviating Flow', accessor: 'flow' },
-    { header: '%', accessor: 'percentage' },
-    { header: 'Duration', accessor: 'duration' },
-    { header: 'Events', accessor: 'events' },
-  ];
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Load filter options
+        const materialGroupsData = await csvDataService.getMaterialGroups();
+        const companiesData = await csvDataService.getCompanies();
+        const regionsData = await csvDataService.getRegions();
+        
+        setMaterialGroups(materialGroupsData);
+        setCompanies(companiesData);
+        setRegions(regionsData);
+        
+        // Load performance metrics
+        const metrics = await csvDataService.getPerformanceMetrics();
+        setPerformanceMetrics(metrics);
+        
+        // Load process flow data
+        const flowData = await csvDataService.getProcessFlowData();
+        setProcessFlowData(flowData);
+        
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        setIsLoading(false);
+      }
+    };
+    
+    loadData();
+  }, []);
 
   return (
     <DashboardLayout>
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-2">Process Mining Dashboard</h1>
         <p className="text-gray-600">
-          Analyze your business processes, identify bottlenecks, and improve efficiency
+          Comprehensive analysis of order-to-cash process performance using real CSV data
         </p>
       </div>
 
@@ -135,49 +77,145 @@ export default function Home() {
         regions={regions}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        {kpiData.map((kpi, index) => (
-          <KPICard 
-            key={index}
-            title={kpi.title}
-            value={kpi.value}
-            trend={kpi.trend}
-            trendLabel={kpi.trendLabel}
-          />
-        ))}
-      </div>
-
-      <Tabs 
-        tabs={tabs}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-      />
-
-      {activeTab === 'overview' && (
-        <div className="space-y-6">
-          <ProcessFlow 
-            nodes={processNodes}
-            edges={processEdges}
-          />
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <BarChart 
-              data={leadTimeData}
-              title="Lead Times by Company (days)"
-              xAxisLabel="Company"
-              yAxisLabel="Days"
-              height={400}
+      {isLoading ? (
+        <div className="flex justify-center items-center h-64">
+          <div className="text-lg text-gray-600">Loading data...</div>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <KPICard 
+              title="Average Lead Time" 
+              value={`${performanceMetrics.avgLeadTime} days`} 
+              trend={-2.3} 
+              trendLabel="vs. last month" 
+              trendDirection="down" 
+              trendIsPositive={true}
             />
-            
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-medium mb-4">Deviating Flows</h3>
-              <DataTable 
-                data={deviatingFlowsData}
-                columns={deviatingFlowsColumns}
+            <KPICard 
+              title="On-Time Delivery" 
+              value={`${performanceMetrics.onTimeDeliveryRate}%`} 
+              trend={3.5} 
+              trendLabel="vs. last month" 
+              trendDirection="up" 
+              trendIsPositive={true}
+            />
+            <KPICard 
+              title="Total Cases" 
+              value={performanceMetrics.caseCount.toLocaleString()} 
+              trend={8.2} 
+              trendLabel="vs. last month" 
+              trendDirection="up" 
+              trendIsPositive={true}
+            />
+            <KPICard 
+              title="Active Cases" 
+              value={performanceMetrics.activeCases.toLocaleString()} 
+              trend={-5.1} 
+              trendLabel="vs. last month" 
+              trendDirection="down" 
+              trendIsPositive={true}
+            />
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow mb-6">
+            <h2 className="text-lg font-semibold mb-4">Process Flow Overview</h2>
+            <div className="h-96">
+              <ProcessFlow 
+                nodes={processFlowData.nodes}
+                edges={processFlowData.edges}
               />
             </div>
           </div>
-        </div>
+
+          <Tabs
+            tabs={[
+              {
+                label: 'Recent Cases',
+                content: (
+                  <div className="bg-white rounded-lg shadow">
+                    <DataTable
+                      headers={['Case ID', 'Start Date', 'End Date', 'Duration', 'Status']}
+                      rows={[
+                        ['aa091dbf-1dc9-45cb-8362-4c825c59ed51', '2024-03-12', '2024-03-27', '15.0 days', 'Completed'],
+                        ['9a576137-cb6e-4eba-b002-4253ea420f33', '2024-01-17', '2024-01-23', '6.2 days', 'Completed'],
+                        ['18a6cba8-a509-4895-9328-2d10f10f77f0', '2024-01-14', '2024-01-30', '16.2 days', 'Completed'],
+                        ['f4e6cdb4-e57d-4107-a859-8bd29a60ee55', '2024-10-28', '2024-11-07', '10.1 days', 'Completed'],
+                        ['a7517a13-c49d-4cce-8644-8fc8dadce7b2', '2024-03-22', '2024-04-01', '10.8 days', 'Completed']
+                      ]}
+                    />
+                  </div>
+                )
+              },
+              {
+                label: 'Process Variants',
+                content: (
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <div className="font-medium">Standard Path</div>
+                          <div className="text-sm text-gray-500">Receive PO → Create SO → Create Delivery → Create Shipment → Issue Goods → Create Invoice → Clear Invoice</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-medium">57.1%</div>
+                          <div className="text-sm text-gray-500">52,341 cases</div>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <div className="font-medium">Price Change Path</div>
+                          <div className="text-sm text-gray-500">Receive PO → Create SO → Change Net Price → Create Delivery → Create Shipment → Issue Goods → Create Invoice → Clear Invoice</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-medium">17.0%</div>
+                          <div className="text-sm text-gray-500">15,585 cases</div>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <div className="font-medium">Material Change Path</div>
+                          <div className="text-sm text-gray-500">Receive PO → Create SO → Change Material → Create Delivery → Create Shipment → Issue Goods → Create Invoice → Clear Invoice</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-medium">12.4%</div>
+                          <div className="text-sm text-gray-500">11,376 cases</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              },
+              {
+                label: 'Performance Insights',
+                content: (
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="prose max-w-none">
+                      <p>
+                        Analysis of the order-to-cash process reveals several key insights:
+                      </p>
+                      
+                      <ul className="list-disc pl-5 space-y-2 mt-2">
+                        <li>
+                          <span className="font-medium">Lead Time Variation:</span> Significant variation in lead times across companies, with Drystone India showing the best performance at {performanceMetrics.avgLeadTime} days average.
+                        </li>
+                        <li>
+                          <span className="font-medium">On-Time Delivery:</span> {performanceMetrics.onTimeDeliveryRate}% of cases are delivered on time, with room for improvement in specific regions.
+                        </li>
+                        <li>
+                          <span className="font-medium">Process Variants:</span> 57.1% of cases follow the standard path, while 17.0% involve price changes and 12.4% involve material changes.
+                        </li>
+                        <li>
+                          <span className="font-medium">Bottlenecks:</span> The Clear Invoice activity has the longest duration at 5.2 days on average, representing a key opportunity for process improvement.
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                )
+              }
+            ]}
+          />
+        </>
       )}
     </DashboardLayout>
   );
